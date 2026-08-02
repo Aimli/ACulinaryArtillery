@@ -35,9 +35,11 @@ namespace ACulinaryArtillery
             if (slot.Itemstack.StackSize == 1)
             {
                 int num = action(slot.Itemstack);
-                if (num > 0)
+                ItemStack? sourceStack = slot.Itemstack;
+                CollectibleObject? sourceCollectible = sourceStack?.Collectible;
+                if (num > 0 && sourceStack != null && sourceCollectible != null)
                 {
-                    _ = slot.Itemstack.Collectible.MaxStackSize;
+                    _ = sourceCollectible.MaxStackSize;
                     EntityPlayer? obj = byEntity as EntityPlayer;
                     if (obj == null)
                     {
@@ -46,25 +48,31 @@ namespace ACulinaryArtillery
 
                     obj.WalkInventory(delegate (ItemSlot pslot)
                     {
-                        if (pslot.Empty || pslot is ItemSlotCreative || pslot.StackSize == pslot.Itemstack.Collectible.MaxStackSize || pslot.Itemstack.ItemAttributes["canSealBottle"].AsBool())
+                        if (!ReferenceEquals(slot.Itemstack, sourceStack) || ReferenceEquals(pslot, slot) || pslot is ItemSlotCreative)
+                        {
+                            return true;
+                        }
+                        ItemStack? targetStack = pslot.Itemstack;
+                        CollectibleObject? targetCollectible = targetStack?.Collectible;
+                        if (ReferenceEquals(targetStack, sourceStack) || targetStack == null || targetCollectible == null || pslot.Empty || targetStack.StackSize == targetCollectible.MaxStackSize || targetStack.ItemAttributes?["canSealBottle"]?.AsBool() == true)
                         {
                             return true;
                         }
 
-                        int mergableQuantity = slot.Itemstack.Collectible.GetMergableQuantity(slot.Itemstack, pslot.Itemstack, EnumMergePriority.DirectMerge);
+                        int mergableQuantity = sourceCollectible.GetMergableQuantity(sourceStack, targetStack, EnumMergePriority.DirectMerge);
                         if (mergableQuantity == 0)
                         {
                             return true;
                         }
 
-                        BlockLiquidContainerBase? obj3 = slot.Itemstack.Collectible as BlockLiquidContainerBase;
-                        BlockLiquidContainerBase? blockLiquidContainerBase = pslot.Itemstack.Collectible as BlockLiquidContainerBase;
-                        if ((obj3?.GetContent(slot.Itemstack)?.StackSize).GetValueOrDefault() != (blockLiquidContainerBase?.GetContent(pslot.Itemstack)?.StackSize).GetValueOrDefault())
+                        BlockLiquidContainerBase? obj3 = sourceCollectible as BlockLiquidContainerBase;
+                        BlockLiquidContainerBase? blockLiquidContainerBase = targetCollectible as BlockLiquidContainerBase;
+                        if ((obj3?.GetContent(sourceStack)?.StackSize).GetValueOrDefault() != (blockLiquidContainerBase?.GetContent(targetStack)?.StackSize).GetValueOrDefault())
                         {
                             return true;
                         }
 
-                        slot.Itemstack.StackSize += mergableQuantity;
+                        sourceStack.StackSize += mergableQuantity;
                         pslot.TakeOut(mergableQuantity);
                         slot.MarkDirty();
                         pslot.MarkDirty();
